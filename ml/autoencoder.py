@@ -120,7 +120,11 @@ def _train(
     # Fetch the dataset
     dataset = ml_datasets.get_dataset(name=dataset, transform=model_cls.TRANSFORM)
     dataloader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=True, num_workers=6, pin_memory=True
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=n_dataloader_workers,
+        pin_memory=True,
     )
 
     # Instantiate the model

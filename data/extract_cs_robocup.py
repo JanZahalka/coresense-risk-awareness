@@ -17,7 +17,7 @@ from rosbag2_py import (  # pylint: disable=import-error
     ConverterOptions,
 )
 
-from paths import CS_ROBOCUP_ROS_DIR, CS_ROBOCUP_ML_DIR
+from .paths import CS_ROBOCUP_ROS_DIR, CS_ROBOCUP_ML_RAW_DIR
 
 TOPIC_RGB_IMAGE = "/xtion/rgb/image_raw"
 TOPIC_DEPTH_IMAGE = "/xtion/depth/image_raw"
@@ -36,7 +36,7 @@ def extract_cs_robocup() -> None:
     for rb in range(1, 9):
         bag_dir = CS_ROBOCUP_ROS_DIR / f"RB_0{rb}" / f"RB_0{rb}"
 
-        output_dir = CS_ROBOCUP_ML_DIR / f"RB_0{rb}"
+        output_dir = CS_ROBOCUP_ML_RAW_DIR / "raw_dataset" / f"RB_0{rb}"
         rgb_output_dir = output_dir / "rgb"
         depth_output_dir = output_dir / "depth"
 

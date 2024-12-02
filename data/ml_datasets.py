@@ -8,9 +8,9 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 
 from .cs_robocup import CSRoboCup
-from .paths import CS_ROBOCUP_ML_DIR
+from .paths import CS_ROBOCUP_ML_RAW_DIR
 
-DATASETS = {"cs_robocup": {"class": CSRoboCup, "dir": CS_ROBOCUP_ML_DIR}}
+DATASETS = {"cs_robocup": {"class": CSRoboCup, "dir": CS_ROBOCUP_ML_RAW_DIR}}
 
 
 def get_dataset(name: str, transform: nn.Module) -> Dataset:
