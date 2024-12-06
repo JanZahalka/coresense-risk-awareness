@@ -23,4 +23,5 @@ CS_ROBOCUP_ROS_DIR = ROS_DATA_DIR / "cs_robocup"
 
 
 # The ML datasets
-CS_ROBOCUP_ML_RAW_DIR = ML_DATA_DIR / "cs_robocup" / "raw_dataset"
+CS_ROBOCUP_ML_DIR = ML_DATA_DIR / "cs_robocup"
+CS_ROBOCUP_ML_RAW_DIR = CS_ROBOCUP_ML_DIR / "raw_dataset"

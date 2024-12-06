@@ -23,3 +23,6 @@ Install the required Python packages with `pip`
 
 Link the system's `rosbag2_py` to the virtualenv
     echo "/opt/ros/rolling/lib/python3.x/site-packages" > ~/env_cram/lib/python3.x/site-packages/ros2.pth
+
+Make sure ROS 2 is sourced
+    source /opt/ros/rolling/setup.bash

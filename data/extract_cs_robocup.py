@@ -17,7 +17,7 @@ from rosbag2_py import (  # pylint: disable=import-error
     ConverterOptions,
 )
 
-from .paths import CS_ROBOCUP_ROS_DIR, CS_ROBOCUP_ML_RAW_DIR
+from paths import CS_ROBOCUP_ROS_DIR, CS_ROBOCUP_ML_RAW_DIR
 
 TOPIC_RGB_IMAGE = "/xtion/rgb/image_raw"
 TOPIC_DEPTH_IMAGE = "/xtion/depth/image_raw"
@@ -36,13 +36,14 @@ def extract_cs_robocup() -> None:
     for rb in range(1, 9):
         bag_dir = CS_ROBOCUP_ROS_DIR / f"RB_0{rb}" / f"RB_0{rb}"
 
-        output_dir = CS_ROBOCUP_ML_RAW_DIR / "raw_dataset" / f"RB_0{rb}"
+        if rb == 1:
+            bag_dir = bag_dir / "mapeo1"
+
+        output_dir = CS_ROBOCUP_ML_RAW_DIR / f"RB_0{rb}"
         rgb_output_dir = output_dir / "rgb"
         depth_output_dir = output_dir / "depth"
 
-        if not bag_dir.exists() or (
-            rgb_output_dir.exists() and depth_output_dir.exists()
-        ):
+        if not bag_dir.exists():
             continue
 
         rgb_output_dir.mkdir(parents=True, exist_ok=True)
@@ -78,22 +79,24 @@ def extract_cs_robocup() -> None:
                             desired_encoding=EXTRACTION_PARAMS[topic_name]["encoding"],
                         )
 
-                        if topic_name == TOPIC_DEPTH_IMAGE:
-                            cv_image = cv2.normalize(
-                                cv_image, None, 0, 255, cv2.NORM_MINMAX
-                            )
-                            cv_image = np.uint8(cv_image)
-
                         timestamp = (
                             img_msg.header.stamp.sec
                             + img_msg.header.stamp.nanosec * 1e-9
                         )
 
-                        image_path = (
-                            output_dir
-                            / f"{EXTRACTION_PARAMS[topic_name]['dir']}/{timestamp:.3f}.png"
-                        )
-                        cv2.imwrite(str(image_path), cv_image)
+                        if topic_name == TOPIC_DEPTH_IMAGE:
+                            cv_image = cv_image.astype(np.float32)  # Ensure float type
+                            invalid_mask = (cv_image <= 0) | (~np.isfinite(cv_image))
+                            cv_image[invalid_mask] = np.nan
+
+                            # Save depth image as .npy file
+                            depth_path = depth_output_dir / f"{timestamp:.3f}.npy"
+                            np.save(depth_path, cv_image)
+                        elif topic_name == TOPIC_RGB_IMAGE:
+                            # Save RGB image as .npy file
+                            rgb_path = rgb_output_dir / f"{timestamp:.3f}.npy"
+                            np.save(rgb_path, cv_image)
+
                         # print(f"Saved image: {image_path}")
 
                     except Exception as e:  # pylint: disable=broad-except
