@@ -26,9 +26,13 @@ CS_ROBOCUP_N_HUMANS_PATH = CS_ROBOCUP_ML_DIR / "n_humans.json"
 CS_ROBOCUP_BBOXES_PATH = CS_ROBOCUP_ML_DIR / "bboxes.json"
 CS_ROBOCUP_DISTANCES_PATH = CS_ROBOCUP_ML_DIR / "distances.json"
 
+CS_ROBOCUP_HUMANS_PATH = CS_ROBOCUP_ML_DIR / "humans.json"
+CS_ROBOCUP_MULTIPLE_HUMANS_PATH = CS_ROBOCUP_ML_DIR / "multiple_humans.json"
+CS_ROBOCUP_CLOSE_HUMANS_PATH = CS_ROBOCUP_ML_DIR / "close_humans.json"
+
 
 # Script constants
-ROUTINES = ["detect_humans", "visualize", "compute_distances"]
+ROUTINES = ["detect_humans", "visualize", "compute_distances", "construct"]
 
 # Invalid depth value
 INVALID_DEPTH = -1
@@ -42,7 +46,11 @@ class CSRoboCup(Dataset):
     it's an unsupervised dataset for ML intents and purposes.
     """
 
-    TASK_TYPES = ["humans"]  # 1 = at least one human, 0 = no humans in the frame
+    TASK_TYPES = [
+        "humans",  # 1 = at least one human, 0 = no humans in the frame
+        "close_humans",  # 1 = at least one human is too close, 0 = no humans that are close
+        "multiple_humans",  # 1 = there are at least n humans, 0 = there are fewer than n humans
+    ]
 
     def __init__(self, root_dir: str, task_type: str, transform=None):
         # Initialize the dataset's variables
@@ -80,7 +88,7 @@ class CSRoboCup(Dataset):
         """
         Loads the data for the "humans" task.
         """
-        with open(CS_ROBOCUP_N_HUMANS_PATH) as f:
+        with open(CS_ROBOCUP_N_HUMANS_PATH, "r", encoding="utf-8") as f:
             n_humans = json.load(f)
 
         # Establish class labels
@@ -269,6 +277,101 @@ def draw_bbox(image_cv2, box):
     return image_cv2
 
 
+def construct_cs_robocup() -> None:
+    """
+    Constructs the CS-Robocup dataset variants based on
+
+    The output is JSON files that assign labels to images in the dataset.
+    """
+
+    n_humans = json.loads(CS_ROBOCUP_N_HUMANS_PATH.read_text())
+    distances = json.loads(CS_ROBOCUP_DISTANCES_PATH.read_text())
+
+    # The humans dataset: any humans in the frame = 1, no humans = 0
+    humans = {}
+
+    # The close humans dataset: any humans too close = 1, no humans too close = 0
+    # The "close" threshold is set to make the risk/no risk split roughly 20/80
+    close_humans = {}
+
+    # The multiple humans dataset: at least n humans = 1, fewer than n humans = 0
+    # The "n" threshold is set to make the risk/no risk split roughly 20/80
+    multiple_humans = {}
+
+    # Compute the quantile for close humans
+    dist_values = []
+
+    for rb in range(1, 9):
+        rb_label = f"RB_0{rb}"
+
+        for img_name, dists in distances[rb_label].items():
+            for dist in dists:
+                if dist != INVALID_DEPTH:
+                    dist_values.append(dist)
+
+    dist_quantile = np.quantile(sorted(dist_values), 0.2)
+    print(f"Quantile for distance: {dist_quantile}")
+    print(
+        f"% positives: {len([v for v in dist_values if v < dist_quantile]) / len(dist_values)}"
+    )
+    print(
+        f"% negatives: {len([v for v in dist_values if v >= dist_quantile]) / len(dist_values)}"
+    )
+
+    # Compute the quantile for number of humans and fill in the humans dataset while we're at it
+    n_humans_values = []
+
+    for rb in range(1, 9):
+        rb_label = f"RB_0{rb}"
+
+        if rb_label not in humans:
+            humans[rb_label] = {}
+
+        for img_name, n in n_humans[rb_label].items():
+            humans[rb_label][img_name] = 1 if n > 0 else 0
+            n_humans_values.append(n)
+
+    n_humans_quantile = np.quantile(sorted(n_humans_values), 0.8)
+    print(f"Quantile for number of humans: {n_humans_quantile}")
+    print(
+        f"% positives: {len([v for v in n_humans_values if v > n_humans_quantile]) / len(n_humans_values)}"
+    )
+    print(
+        f"% negatives: {len([v for v in n_humans_values if v <= n_humans_quantile]) / len(n_humans_values)}"
+    )
+
+    # Go over the distances and fill in the close humans dataset
+    for rb in range(1, 9):
+        rb_label = f"RB_0{rb}"
+
+        if rb_label not in close_humans:
+            close_humans[rb_label] = {}
+
+        for img_name, dists in distances[rb_label].items():
+            close_humans[rb_label][img_name] = (
+                1 if any(d < dist_quantile for d in dists) else 0
+            )
+
+    # Go over the number of humans and fill in the multiple humans dataset
+    for rb in range(1, 9):
+        rb_label = f"RB_0{rb}"
+
+        if rb_label not in multiple_humans:
+            multiple_humans[rb_label] = {}
+
+        for img_name, n in n_humans[rb_label].items():
+            multiple_humans[rb_label][img_name] = 1 if n > n_humans_quantile else 0
+
+    # Count the actual splits
+
+    # Save the datasets
+    CS_ROBOCUP_ML_DIR.mkdir(parents=True, exist_ok=True)
+
+    CS_ROBOCUP_HUMANS_PATH.write_text(json.dumps(humans, indent=4))
+    CS_ROBOCUP_CLOSE_HUMANS_PATH.write_text(json.dumps(close_humans, indent=4))
+    CS_ROBOCUP_MULTIPLE_HUMANS_PATH.write_text(json.dumps(multiple_humans, indent=4))
+
+
 def visualize_humans_bboxes() -> None:
     """
     Visualize the bounding boxes of the detected humans in the CoreSense RoboCup dataset.
@@ -322,5 +425,7 @@ if __name__ == "__main__":
         visualize_humans_bboxes()
     elif args.routine == "compute_distances":
         compute_human_distances()
+    elif args.routine == "construct":
+        construct_cs_robocup()
     else:
         raise ValueError(f"Unknown routine: {args.routine}")
