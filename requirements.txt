@@ -1,8 +1,13 @@
 datasets
+joblib
+matplotlib
+opencv-contrib-python-headless
 opencv-python
 numpy<2.0.0
 pillow
 PyYAML
+seaborn
+scikit-learn
 setuptools
 torch
 torchvision
