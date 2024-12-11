@@ -166,6 +166,7 @@ cython_debug/
 # Datasets
 ros_datasets/
 raw_dataset/
+features/
 
 # ML models
 ml_models
