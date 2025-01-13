@@ -25,19 +25,19 @@ from transformers import (
 from tqdm import tqdm
 
 from riskam.data.paths import (
-    CS_ROBOCUP_ML_DIR,
-    CS_ROBOCUP_ML_RAW_DIR,
-    CS_ROBOCUP_ML_FEAT_DIR,
+    CS_ROBOCUP_2023_ML_DIR,
+    CS_ROBOCUP_2023_ML_RAW_DIR,
+    CS_ROBOCUP_2023_ML_FEAT_DIR,
 )
 
 
-CS_ROBOCUP_N_HUMANS_PATH = CS_ROBOCUP_ML_DIR / "n_humans.json"
-CS_ROBOCUP_BBOXES_PATH = CS_ROBOCUP_ML_DIR / "bboxes.json"
-CS_ROBOCUP_DISTANCES_PATH = CS_ROBOCUP_ML_DIR / "distances.json"
+CS_ROBOCUP_N_HUMANS_PATH = CS_ROBOCUP_2023_ML_DIR / "n_humans.json"
+CS_ROBOCUP_BBOXES_PATH = CS_ROBOCUP_2023_ML_DIR / "bboxes.json"
+CS_ROBOCUP_DISTANCES_PATH = CS_ROBOCUP_2023_ML_DIR / "distances.json"
 
-CS_ROBOCUP_HUMANS_PATH = CS_ROBOCUP_ML_DIR / "humans.json"
-CS_ROBOCUP_MULTIPLE_HUMANS_PATH = CS_ROBOCUP_ML_DIR / "multiple_humans.json"
-CS_ROBOCUP_CLOSE_HUMANS_PATH = CS_ROBOCUP_ML_DIR / "close_humans.json"
+CS_ROBOCUP_HUMANS_PATH = CS_ROBOCUP_2023_ML_DIR / "humans.json"
+CS_ROBOCUP_MULTIPLE_HUMANS_PATH = CS_ROBOCUP_2023_ML_DIR / "multiple_humans.json"
+CS_ROBOCUP_CLOSE_HUMANS_PATH = CS_ROBOCUP_2023_ML_DIR / "close_humans.json"
 
 
 # Script constants
@@ -125,13 +125,13 @@ def extract_features() -> None:
     Extracts ViT features from the CoreSense RoboCup dataset.
     """
 
-    if CS_ROBOCUP_ML_FEAT_DIR.exists():
+    if CS_ROBOCUP_2023_ML_FEAT_DIR.exists():
         print("The features have already been extracted. Skipping...")
         return
 
     print("+++ EXTRACTING FEATURES +++")
 
-    CS_ROBOCUP_ML_FEAT_DIR.mkdir(parents=True, exist_ok=True)
+    CS_ROBOCUP_2023_ML_FEAT_DIR.mkdir(parents=True, exist_ok=True)
 
     # Load pretrained feature extractor and model
 
@@ -145,8 +145,8 @@ def extract_features() -> None:
 
         print(f"Run RB_0{rb}:")
 
-        rb_rgb_dir = CS_ROBOCUP_ML_RAW_DIR / rb_label / "rgb"
-        rb_feat_dir = CS_ROBOCUP_ML_FEAT_DIR / rb_label / "rgb"
+        rb_rgb_dir = CS_ROBOCUP_2023_ML_RAW_DIR / rb_label / "rgb"
+        rb_feat_dir = CS_ROBOCUP_2023_ML_FEAT_DIR / rb_label / "rgb"
         rb_feat_dir.mkdir(parents=True, exist_ok=True)
 
         for image_path in tqdm(list(rb_rgb_dir.glob("*.npy"))):
@@ -192,7 +192,7 @@ def detect_humans_in_frames() -> None:
         n_humans[rb_label] = {}
         bboxes[rb_label] = {}
 
-        rb_rgb_dir = CS_ROBOCUP_ML_RAW_DIR / f"RB_0{rb}" / "rgb"
+        rb_rgb_dir = CS_ROBOCUP_2023_ML_RAW_DIR / f"RB_0{rb}" / "rgb"
 
         for img_path in tqdm(list(rb_rgb_dir.glob("*.npy"))):
             # Establish the entry in the dicts
@@ -284,7 +284,7 @@ def compute_human_distances() -> None:
 
         distances[rb_label] = {}
 
-        rb_depth_dir = CS_ROBOCUP_ML_RAW_DIR / f"RB_0{rb}" / "depth"
+        rb_depth_dir = CS_ROBOCUP_2023_ML_RAW_DIR / f"RB_0{rb}" / "depth"
         rgb_images = [
             float(".".join(i.split(".")[:-1]))
             for i in sorted(list(bboxes[rb_label].keys()))
@@ -555,7 +555,7 @@ def construct_cs_robocup() -> None:
     )
 
     # Save the datasets
-    CS_ROBOCUP_ML_DIR.mkdir(parents=True, exist_ok=True)
+    CS_ROBOCUP_2023_ML_DIR.mkdir(parents=True, exist_ok=True)
 
     CS_ROBOCUP_HUMANS_PATH.write_text(json.dumps(humans, indent=4))
     CS_ROBOCUP_CLOSE_HUMANS_PATH.write_text(json.dumps(close_humans, indent=4))
@@ -571,7 +571,7 @@ def visualize_humans_bboxes() -> None:
 
     for rb in range(1, 9):
         rb_label = f"RB_0{rb}"
-        rb_rgb_dir = CS_ROBOCUP_ML_RAW_DIR / f"RB_0{rb}" / "rgb"
+        rb_rgb_dir = CS_ROBOCUP_2023_ML_RAW_DIR / f"RB_0{rb}" / "rgb"
 
         for img_path in tqdm(sorted(list(rb_rgb_dir.glob("*.npy")))):
             try:

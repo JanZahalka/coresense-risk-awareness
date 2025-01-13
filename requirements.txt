@@ -1,3 +1,5 @@
+accelerate
+bitsandbytes
 datasets
 joblib
 matplotlib

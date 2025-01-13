@@ -8,9 +8,9 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 
 from riskam.data.cs_robocup import CSRoboCup
-from riskam.data.paths import CS_ROBOCUP_ML_RAW_DIR, CS_ROBOCUP_ML_FEAT_DIR
+from riskam.data.paths import CS_ROBOCUP_2023_ML_RAW_DIR, CS_ROBOCUP_2023_ML_FEAT_DIR
 
-DATASETS = {"cs_robocup": {"class": CSRoboCup, "dir": CS_ROBOCUP_ML_FEAT_DIR}}
+DATASETS = {"cs_robocup": {"class": CSRoboCup, "dir": CS_ROBOCUP_2023_ML_FEAT_DIR}}
 
 
 def get_dataset(
