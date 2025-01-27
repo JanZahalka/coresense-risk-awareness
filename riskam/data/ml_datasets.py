@@ -7,10 +7,12 @@ data.ml_datasets
 import torch.nn as nn
 from torch.utils.data import Dataset
 
-from riskam.data.cs_robocup import CSRoboCup
+from riskam.data.cs_robocup_2023 import CSRoboCup2023
 from riskam.data.paths import CS_ROBOCUP_2023_ML_RAW_DIR, CS_ROBOCUP_2023_ML_FEAT_DIR
 
-DATASETS = {"cs_robocup": {"class": CSRoboCup, "dir": CS_ROBOCUP_2023_ML_FEAT_DIR}}
+DATASETS = {
+    "cs_robocup_2023": {"class": CSRoboCup2023, "dir": CS_ROBOCUP_2023_ML_FEAT_DIR}
+}
 
 
 def get_dataset(

@@ -16,10 +16,15 @@ sys.path.append(str(Path(__file__).parent.parent))
 from riskam.ml.llava import Llava
 
 if __name__ == "__main__":
-    NP_IMAGE_PATH = "ml_datasets/cs_robocup/raw_dataset/RB_01/rgb/1537223824.506.npy"
-    Llava.process_image(NP_IMAGE_PATH)
 
-    np_image = np.load(NP_IMAGE_PATH)
-    image = Image.fromarray(np_image)
+    IMG_PATHS = [
+        "ml_datasets/cs_robocup_2023/raw_dataset/RB_01/rgb/1537223824.506.png",
+        "ml_datasets/cs_robocup_2023/raw_dataset/RB_01/rgb/1537223827.468.png",
+    ]
 
-    image.show()
+    llava = Llava()
+    llava.process_image(IMG_PATHS)
+
+    for img_path in IMG_PATHS:
+        image = Image.open(img_path)
+        image.show()

@@ -29,7 +29,7 @@ EXTRACTION_PARAMS = {
 }
 
 
-def extract_cs_robocup() -> None:
+def extract_cs_robocup2023() -> None:
     """
     The main extractor function.
     """
@@ -108,4 +108,4 @@ def extract_cs_robocup() -> None:
 
 
 if __name__ == "__main__":
-    extract_cs_robocup()
+    extract_cs_robocup2023()

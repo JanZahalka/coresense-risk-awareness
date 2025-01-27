@@ -14,7 +14,7 @@ import torch
 sys.path.append(str(Path(__file__).parent.parent))
 
 # pylint: disable=wrong-import-position
-from riskam.data.cs_robocup import CSRoboCup
+from riskam.data.cs_robocup import CSRoboCup2023
 from riskam.data.ml_datasets import DATASETS
 from riskam.ml.autoencoder import (
     VariationalAutoEncoder,
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--task",
-        choices=CSRoboCup.TASKS,
+        choices=CSRoboCup2023.TASKS,
         type=str,
         default=None,
         help="The dataset task to train the model on. Required for CS Robocup dataset.",

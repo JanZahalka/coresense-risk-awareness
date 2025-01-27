@@ -50,7 +50,7 @@ INVALID_DEPTH = -1
 RANDOM_SEED = 5
 
 
-class CSRoboCup(Dataset):
+class CSRoboCup2023(Dataset):
     """
     The CoreSense RoboCup PyTorch dataset object.
 
