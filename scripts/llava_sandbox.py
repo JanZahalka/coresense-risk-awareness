@@ -18,8 +18,9 @@ from riskam.ml.llava import Llava
 if __name__ == "__main__":
 
     IMG_PATHS = [
-        "ml_datasets/cs_robocup_2023/raw_dataset/RB_01/rgb/1537223824.506.png",
-        "ml_datasets/cs_robocup_2023/raw_dataset/RB_01/rgb/1537223827.468.png",
+        # "ml_datasets/cs_robocup_2023/raw_dataset/RB_01/rgb/1537223824.506.png",
+        # "ml_datasets/cs_robocup_2023/raw_dataset/RB_01/rgb/1537223827.468.png",
+        "ml_datasets/cs_robocup_2023/raw_dataset/RB_02/rgb/1537390896.430.png",
     ]
 
     llava = Llava()

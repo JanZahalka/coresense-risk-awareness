@@ -24,7 +24,49 @@ class Llava:
 
     MODEL_ID = "llava-hf/llava-v1.6-mistral-7b-hf"
 
-    PROMPT = "USER: <image>\nHow many robots do you see? How many humans?\nASSISTANT:"
+    PROMPT = """
+You are an AI assistant tasked with analyzing RGB images to extract meaningful semantic features related to risks in robotics, specifically focusing on risks to humans. Your input consists only of visual data from RGB cameras.
+
+Analyze the image and extract features that indicate potential risks to humans. Focus on:
+
+1. **Robot features**:
+   - Position and orientation in the scene.
+   - Proximity to nearby humans.
+   - Visible movement cues (e.g., motion blur or changes in position).
+   - End-effector activity (e.g., holding sharp tools, heavy objects).
+
+2. **Human features**:
+   - Distance from the robot.
+   - Posture and body position (e.g., leaning, dodging, or interacting with the robot).
+   - Facial expressions indicating surprise, fear, or focus on the robot.
+   - Gestures or motion cues (e.g., raised hands, pointing).
+
+3. **Environmental features**:
+   - Presence of hazards (e.g., sharp tools, slippery floors, clutter).
+   - Crowdedness in the scene (e.g., many humans or objects near the robot).
+   - Motion of other objects (e.g., moving obstacles or tools).
+
+Provide your output as a structured JSON object in the following format:
+{
+    "robot_features": {
+        "position": "<description>",
+        "proximity_to_humans": "<value in meters or descriptive>",
+        "motion_cues": "<description>",
+        "end_effector_activity": "<description>"
+    },
+    "human_features": {
+        "distance_to_robot": "<value in meters or descriptive>",
+        "posture": "<description>",
+        "facial_expression": "<description>",
+        "gestures": "<description>"
+    },
+    "environmental_features": {
+        "hazards": ["<list of hazards>"],
+        "crowdedness": "<low/medium/high>",
+        "dynamic_objects": "<description>"
+    }
+}
+"""
 
     CONVERSATION = [
         {
@@ -33,29 +75,13 @@ class Llava:
                 {"type": "image"},
                 {
                     "type": "text",
-                    "text": "This is IMAGE_1. Respond with an empty string.",
+                    "text": PROMPT,
                 },
             ],
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {"type": "text", "text": ""},
-            ],
-        },
-        {
-            "role": "user",
-            "content": [
-                {"type": "image"},
-                {
-                    "type": "text",
-                    "text": "This is IMAGE_2. What is the difference between IMAGE_1 and IMAGE_2?",
-                },
-            ],
-        },
+        }
     ]
 
-    MAX_NEW_TOKENS = 200
+    MAX_NEW_TOKENS = 50000
 
     quantization_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -96,17 +122,13 @@ class Llava:
             self.CONVERSATION, add_generation_prompt=True
         )
 
-        print(prompt)
-
         inputs = self.processor(
             images=images, text=prompt, padding=True, return_tensors="pt"
         ).to(self.model.device)
 
         # Generate outputs
         generate_ids = self.model.generate(**inputs, max_new_tokens=self.MAX_NEW_TOKENS)
-        outputs = self.processor.batch_decode(
-            generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True
-        )
+        outputs = self.processor.batch_decode(generate_ids, skip_special_tokens=True)
         # outputs = pipe(
         #     images,
         #     prompt=prompt,
