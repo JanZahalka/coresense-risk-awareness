@@ -75,7 +75,7 @@ Provide your output as a structured JSON object in the following format:
                 {"type": "image"},
                 {
                     "type": "text",
-                    "text": PROMPT,
+                    "text": "This image is shot by a mobile robot's camera. Describe the risks the robot that shot the image may pose to humans, if any.",
                 },
             ],
         }
