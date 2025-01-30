@@ -11,6 +11,7 @@ from transformers import (
     LlavaNextForConditionalGeneration,
     LlavaNextProcessor,
     pipeline,
+    AutoTokenizer,
 )
 import numpy as np
 from PIL import Image
@@ -25,47 +26,42 @@ class Llava:
     MODEL_ID = "llava-hf/llava-v1.6-mistral-7b-hf"
 
     PROMPT = """
-You are an AI assistant tasked with analyzing RGB images to extract meaningful semantic features related to risks in robotics, specifically focusing on risks to humans. Your input consists only of visual data from RGB cameras.
+You are an advanced multimodal AI system designed to extract risk-related semantic features from RGB images captured by a mobile robot's camera. Your task is to analyze a single RGB image and output a JSON object containing key risk-awareness features related to human safety.
 
-Analyze the image and extract features that indicate potential risks to humans. Focus on:
+**Objective:**
+Extract and encode potential risks to humans in the environment based on the provided image. Consider:
+- **Proximity Risk:** The distance between the robot and any humans present. The closer the human, the higher the risk.
+- **Human Awareness Risk:** Whether the human appears aware of the robot. Signs of unawareness include facing away, looking elsewhere, or being engaged in another activity.
+- **Discomfort Risk:** If the human exhibits body language suggesting discomfort, such as stepping back, raising hands defensively, or facial expressions of concern.
+- **Environmental Hazard Risk:** If the surroundings contain elements that may amplify risk, such as slippery floors, moving machinery, or cluttered areas.
 
-1. **Robot features**:
-   - Position and orientation in the scene.
-   - Proximity to nearby humans.
-   - Visible movement cues (e.g., motion blur or changes in position).
-   - End-effector activity (e.g., holding sharp tools, heavy objects).
+**Input:**
+A single RGB image captured from the mobile robot's perspective.
 
-2. **Human features**:
-   - Distance from the robot.
-   - Posture and body position (e.g., leaning, dodging, or interacting with the robot).
-   - Facial expressions indicating surprise, fear, or focus on the robot.
-   - Gestures or motion cues (e.g., raised hands, pointing).
-
-3. **Environmental features**:
-   - Presence of hazards (e.g., sharp tools, slippery floors, clutter).
-   - Crowdedness in the scene (e.g., many humans or objects near the robot).
-   - Motion of other objects (e.g., moving obstacles or tools).
-
-Provide your output as a structured JSON object in the following format:
+**Output Format (JSON):**
+Return a JSON object with the following structure:
+```json
 {
-    "robot_features": {
-        "position": "<description>",
-        "proximity_to_humans": "<value in meters or descriptive>",
-        "motion_cues": "<description>",
-        "end_effector_activity": "<description>"
-    },
-    "human_features": {
-        "distance_to_robot": "<value in meters or descriptive>",
-        "posture": "<description>",
-        "facial_expression": "<description>",
-        "gestures": "<description>"
-    },
-    "environmental_features": {
-        "hazards": ["<list of hazards>"],
-        "crowdedness": "<low/medium/high>",
-        "dynamic_objects": "<description>"
-    }
+  "proximity_risk": {
+    "level": "low" | "moderate" | "high",
+    "explanation": "<explanation of proximity risks>"
+  },
+  "human_awareness_risk": {
+    "level": "low" | "moderate" | "high",
+    "human_facing_robot": true | false,
+    "explanation": "<explanation of human awareness risks>"
+  },
+  "discomfort_risk": {
+    "level": "low" | "moderate" | "high",
+    "explanation": "<explanation of human discomfort risks>"
+  },
+  "environmental_hazard_risk": {
+    "level": "low" | "moderate" | "high",
+    "explanation": "<explanation of environmental hazards>"
+  }
 }
+```
+Ensure your output is consistent, reasonable, and interpretable for downstream machine learning models.
 """
 
     CONVERSATION = [
@@ -75,7 +71,7 @@ Provide your output as a structured JSON object in the following format:
                 {"type": "image"},
                 {
                     "type": "text",
-                    "text": "This image is shot by a mobile robot's camera. Describe the risks the robot that shot the image may pose to humans, if any.",
+                    "text": PROMPT,
                 },
             ],
         }
@@ -91,15 +87,18 @@ Provide your output as a structured JSON object in the following format:
 
     def __init__(self):
         self.processor = AutoProcessor.from_pretrained(self.MODEL_ID)
+        # self.tokenizer = AutoTokenizer.from_pretrained(self.MODEL_ID)
 
-        self.model = AutoModelForImageTextToText.from_pretrained(
-            self.MODEL_ID,
-            quantization_config=self.quantization_config,
-            device_map="auto",
-        )
-        self.processor.patch_size = self.model.config.vision_config.patch_size
-        self.processor.vision_feature_select_strategy = (
-            self.model.config.vision_feature_select_strategy
+        # self.model = AutoModelForImageTextToText.from_pretrained(
+        #     self.MODEL_ID,
+        #     quantization_config=self.quantization_config,
+        #     device_map="auto",
+        # )
+        self.pipe = pipeline(
+            "image-text-to-text",
+            model=self.MODEL_ID,
+            model_kwargs={"quantization_config": self.quantization_config},
+            return_full_text=False,
         )
 
     def process_image(self, image_paths: list[str]) -> str:
@@ -121,20 +120,26 @@ Provide your output as a structured JSON object in the following format:
         prompt = self.processor.apply_chat_template(
             self.CONVERSATION, add_generation_prompt=True
         )
-
-        inputs = self.processor(
-            images=images, text=prompt, padding=True, return_tensors="pt"
-        ).to(self.model.device)
-
-        # Generate outputs
-        generate_ids = self.model.generate(**inputs, max_new_tokens=self.MAX_NEW_TOKENS)
-        outputs = self.processor.batch_decode(generate_ids, skip_special_tokens=True)
-        # outputs = pipe(
-        #     images,
-        #     prompt=prompt,
-        #     generate_kwargs={"max_new_tokens": cls.MAX_NEW_TOKENS},
+        # tokenized_chat = self.tokenizer.apply_chat_template(
+        #     self.CONVERSATION,
+        #     tokenize=True,
+        #     add_generation_prompt=True,
+        #     return_tensors="pt",
         # )
 
-        print(outputs)
+        # inputs = self.processor(
+        #     images=images, text=prompt, padding=True, return_tensors="pt"
+        # ).to(self.model.device)
+
+        # # Generate outputs
+        # generate_ids = self.model.generate(**inputs, max_new_tokens=self.MAX_NEW_TOKENS)
+        # outputs = self.processor.batch_decode(generate_ids, skip_special_tokens=True)
+        outputs = self.pipe(
+            images,
+            text=prompt,
+            generate_kwargs={"max_new_tokens": self.MAX_NEW_TOKENS},
+        )
+
+        print(outputs[0]["generated_text"])
 
         return ""
