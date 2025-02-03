@@ -129,7 +129,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-env_cram/
+env_*/
 
 # Spyder project settings
 .spyderproject
@@ -170,3 +170,6 @@ features/
 
 # ML models
 ml_models
+
+# Test results and directories
+test_*/
