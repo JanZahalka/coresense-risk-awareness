@@ -1,7 +1,6 @@
 accelerate
 bitsandbytes
 datasets
-dghs-realutils
 joblib
 matplotlib
 mediapipe
@@ -13,7 +12,9 @@ PyYAML
 seaborn
 scikit-learn
 setuptools
+timm
 torch
 torchvision
 tqdm
 transformers
+ultralytics

@@ -18,6 +18,9 @@ ROS_DATA_DIR = ROOT_DIR / "ros_datasets"
 # The dir of datasets used for ML
 ML_DATA_DIR = ROOT_DIR / "ml_datasets"
 
+# The ML models
+ML_MODELS_DIR = ROOT_DIR / "ml_models"
+
 # The ROS datasets
 CS_ROBOCUP_2023_ROS_DIR = ROS_DATA_DIR / "cs_robocup_2023"
 

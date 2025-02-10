@@ -20,7 +20,8 @@ face_detection = mp_face_detection.FaceDetection(
 )
 
 # Constants: yaw and pitch thresholds. The larger the threshold, the more lenient
-YAW_THRESHOLD = 0.4
+YAW_THRESHOLD = 0.35
+EYE_GAZE_THRESHOLD = 0.2  # Adjust as needed
 
 FACE_DETECTION_MODEL = "deepghs/yolo-face"
 
@@ -32,45 +33,103 @@ def detect_gaze(image: Image, visualize: bool = False) -> bool | None:
     Returns True if the person is looking at the robot, False if not, None
     if no person is detected.
     """
+
     # Convert image to RGB
     image_np = np.array(image)
-
-    # # Detect and crop the face
-    # face_image = _detect_and_crop_face(image_np)
-
-    # if face_image is None:
-    #     print("No face detected.")
-    #     return None
+    h, w, _ = image_np.shape
 
     results = face_mesh.process(image_np)
-
     if not results.multi_face_landmarks:
-        print("Mesh constructon failed.")
+        print("Mesh construction failed.")
         return None  # No face detected
 
-    h, w, _ = image_np.shape  # Get image dimensions
     face_landmarks = results.multi_face_landmarks[0]
+
+    # Ensure enough landmarks exist before accessing indices
+    if len(face_landmarks.landmark) < 474:  # Ensure all eye & iris landmarks exist
+        print("Incomplete face mesh data, skipping.")
+        return None
 
     # Get key 2D facial landmarks
     left_eye = face_landmarks.landmark[33]  # Left eye corner
     right_eye = face_landmarks.landmark[263]  # Right eye corner
     nose_tip = face_landmarks.landmark[1]  # Nose tip
+    chin = face_landmarks.landmark[199]  # Chin
 
-    # Convert normalized landmark positions to image coordinates
+    # Convert to image coordinates
     left_eye_pt = np.array([left_eye.x * w, left_eye.y * h])
     right_eye_pt = np.array([right_eye.x * w, right_eye.y * h])
     nose_tip_pt = np.array([nose_tip.x * w, nose_tip.y * h])
+    chin_pt = np.array([chin.x * w, chin.y * h])
 
+    # Compute yaw offset, normalized by face height
+    face_height = np.linalg.norm(nose_tip_pt - chin_pt)
     eye_midpoint = (left_eye_pt + right_eye_pt) / 2
+    yaw_offset = abs(nose_tip_pt[0] - eye_midpoint[0]) / face_height
 
-    yaw_offset = abs(nose_tip_pt[0] - eye_midpoint[0]) / np.linalg.norm(
+    # Compute eye gaze direction
+    left_iris = np.array(
+        [face_landmarks.landmark[468].x * w, face_landmarks.landmark[468].y * h]
+    )
+    right_iris = np.array(
+        [face_landmarks.landmark[473].x * w, face_landmarks.landmark[473].y * h]
+    )
+
+    left_iris_offset = abs(left_iris[0] - left_eye_pt[0]) / np.linalg.norm(
+        right_eye_pt - left_eye_pt
+    )
+    right_iris_offset = abs(right_iris[0] - right_eye_pt[0]) / np.linalg.norm(
         right_eye_pt - left_eye_pt
     )
 
-    print(f"Yaw Offset: {yaw_offset:.2f}")
+    eye_gaze_offset = (
+        left_iris_offset + right_iris_offset
+    ) / 2  # Average offset for both eyes
 
-    is_aware = yaw_offset < YAW_THRESHOLD
+    print(f"Yaw Offset: {yaw_offset:.2f}, Eye Gaze Offset: {eye_gaze_offset:.2f}")
+
+    is_aware = (yaw_offset < YAW_THRESHOLD) and (eye_gaze_offset < EYE_GAZE_THRESHOLD)
     return is_aware
+
+    # # Convert image to RGB
+    # image_np = np.array(image)
+
+    # # # Detect and crop the face
+    # # face_image = _detect_and_crop_face(image_np)
+
+    # # if face_image is None:
+    # #     print("No face detected.")
+    # #     return None
+
+    # results = face_mesh.process(image_np)
+
+    # if not results.multi_face_landmarks:
+    #     print("Mesh constructon failed.")
+    #     return None  # No face detected
+
+    # h, w, _ = image_np.shape  # Get image dimensions
+    # face_landmarks = results.multi_face_landmarks[0]
+
+    # # Get key 2D facial landmarks
+    # left_eye = face_landmarks.landmark[33]  # Left eye corner
+    # right_eye = face_landmarks.landmark[263]  # Right eye corner
+    # nose_tip = face_landmarks.landmark[1]  # Nose tip
+
+    # # Convert normalized landmark positions to image coordinates
+    # left_eye_pt = np.array([left_eye.x * w, left_eye.y * h])
+    # right_eye_pt = np.array([right_eye.x * w, right_eye.y * h])
+    # nose_tip_pt = np.array([nose_tip.x * w, nose_tip.y * h])
+
+    # eye_midpoint = (left_eye_pt + right_eye_pt) / 2
+
+    # yaw_offset = abs(nose_tip_pt[0] - eye_midpoint[0]) / np.linalg.norm(
+    #     right_eye_pt - left_eye_pt
+    # )
+
+    # print(f"Yaw Offset: {yaw_offset:.2f}")
+
+    # is_aware = yaw_offset < YAW_THRESHOLD
+    # return is_aware
 
     # # Get key facial landmarks
     # left_eye = face_landmarks.landmark[33]  # Left eye

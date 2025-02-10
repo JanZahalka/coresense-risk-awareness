@@ -26,12 +26,13 @@ if __name__ == "__main__":
         "ml_datasets/cs_robocup_2023/raw_dataset/RB_08/rgb/1537360313.658.png",  # A man in red with face really close to the camera, alone
         "ml_datasets/cs_robocup_2023/raw_dataset/RB_07/rgb/1537387705.642.png",  # Men arguing in front of the robot
         "ml_datasets/cs_robocup_2023/raw_dataset/RB_01/rgb/1537223839.849.png",  # Several people looking from the doorway
+        "/home/cortex/Pictures/runner.jpg",  # A runner
     ]
 
     for img_path in IMG_PATHS:
         with Image.open(img_path) as image:
             features, visualization = featextr.extract_human_risk_awareness_features(
-                image, visualize=True
+                image, img_path, visualize=True
             )
 
             output_path = TEST_RESULTS_DIR / Path(img_path).name

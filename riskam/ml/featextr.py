@@ -4,26 +4,25 @@ ml.featextr
 Feature extraction module for risk awareness.
 """
 
+from time import time
+
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
+import numpy as np
 
-from riskam.ml import gaze, humandet
+from riskam.ml import depth, humandet
 
 HUMAN_DETECTOR_MODEL = "hustvl/yolos-tiny"
 
 
 def extract_human_risk_awareness_features(
-    image: Image, visualize: bool = False
+    image: Image, image_path: str, visualize: bool = False
 ) -> dict:
     """
     Extract the features related to human risk from the given image.
     """
-
-    # Extract human bounding boxes
-    human_bboxes = humandet.detect_humans(image)
-
-    # For each human, detect gaze
-    human_gazes = [gaze.detect_gaze(image.crop(bbox)) for bbox in human_bboxes]
+    t = time()
+    human_bboxes, human_gazes = humandet.detect_humans(image_path)
 
     # Return the extracted features
     features = {
@@ -31,9 +30,34 @@ def extract_human_risk_awareness_features(
         "gaze": human_gazes,
     }
 
+    rel_depth = depth.estimate_depth(image_path)
+    image = Image.open(image_path).convert("RGBA")
+
+    # Normalize depth values between 0 (far) and 1 (close)
+    depth_min, depth_max = rel_depth.min(), rel_depth.max()
+    rel_depth_normalized = 1 - (rel_depth - depth_min) / (
+        depth_max - depth_min
+    )  # Invert depth (close=1, far=0)
+
+    alpha_channel = (rel_depth_normalized * 255).astype(
+        np.uint8
+    )  # Alpha (transparency) based on depth
+    black_channel = np.zeros_like(alpha_channel)  # Black color (0,0,0)
+
+    # Stack into RGBA image (depth overlay)
+    depth_overlay = np.stack(
+        [black_channel, black_channel, black_channel, alpha_channel], axis=-1
+    )
+
+    # Convert to PIL image and resize to match input image
+    depth_overlay_pil = Image.fromarray(depth_overlay, mode="RGBA").resize(image.size)
+
+    # Blend images (alpha composite)
+    overlayed_image = Image.alpha_composite(image, depth_overlay_pil)
+
     # Visualization
     if visualize:
-        draw = ImageDraw.Draw(image)
+        draw = ImageDraw.Draw(overlayed_image)
 
         for bbox, is_gazing in zip(human_bboxes, human_gazes):
             color = (
@@ -43,13 +67,15 @@ def extract_human_risk_awareness_features(
 
         # Display the image
         plt.figure(figsize=(8, 8))
-        plt.imshow(image)
+        plt.imshow(overlayed_image)
         plt.axis("off")
         plt.show()
 
-        visualization = image
+        visualization = overlayed_image
     else:
         visualization = None
+
+    print("Feature extraction time:", time() - t)
 
     return features, visualization
 
