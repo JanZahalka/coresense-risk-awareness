@@ -31,7 +31,7 @@ FACE_OFFSET_THRESHOLD_RATIO = 0.3
 
 def detect_humans(
     image_path: str,
-) -> tuple[list[tuple[int, int, int, int]], list[bool]]:
+) -> tuple[list[tuple[int, int, int, int]], list[float], list[bool]]:
     """
     Detects humans in the given image and whether they are likely aware of the robot,
     using YOLOv11n.
@@ -65,7 +65,7 @@ def detect_humans(
         # Iterate over detected humans
         for person_id, kpts in enumerate(keypoints_np):
             if kpts.shape[0] == 0:  # Handle cases where keypoints exist but are empty
-                print(f"Skipping person {person_id + 1} due to missing keypoints")
+                # print(f"Skipping person {person_id + 1} due to missing keypoints")
                 continue
 
             # Extract keypoints
@@ -88,9 +88,9 @@ def detect_humans(
                 )
 
                 looking_at_robot = normalized_offset < HEAD_OFFSET_THRESHOLD_RATIO
-                print(
-                    f"Person {person_id+1} (Shoulder Method) Normalized Head Offset: {normalized_offset:.2f} | Looking: {looking_at_robot}"
-                )
+                # print(
+                #     f"Person {person_id+1} (Shoulder Method) Normalized Head Offset: {normalized_offset:.2f} | Looking: {looking_at_robot}"
+                # )
 
             # ====== METHOD 2: FACE-BASED (Fallback if shoulders are occluded) ======
             elif left_eye is not None and right_eye is not None:
@@ -107,15 +107,41 @@ def detect_humans(
                 )
 
                 looking_at_robot = normalized_face_offset < FACE_OFFSET_THRESHOLD_RATIO
-                print(
-                    f"Person {person_id+1} (Face Method) Normalized Face Offset: {normalized_face_offset:.2f} | Looking: {looking_at_robot}"
-                )
+                # print(
+                #     f"Person {person_id+1} (Face Method) Normalized Face Offset: {normalized_face_offset:.2f} | Looking: {looking_at_robot}"
+                # )
 
             else:
                 # No reliable keypoints available
-                print(f"Person {person_id+1} skipped due to missing keypoints.")
+                # print(f"Person {person_id+1} skipped due to missing keypoints.")
                 looking_at_robot = False
 
             human_gazes.append(looking_at_robot)
 
-    return human_bboxes, human_gazes
+    # Calculate bbox offsets from the center
+    if len(image.shape) == 3:
+        _, image_width, _ = image.shape  # Color image (3D)
+    else:
+        _, image_width = image.shape  # Grayscale image (2D)
+    human_bbox_offsets = [
+        _bbox_offset_score(bbox, image_width) for bbox in human_bboxes
+    ]
+
+    return human_bboxes, human_bbox_offsets, human_gazes
+
+
+def _bbox_offset_score(bbox: tuple[int, int, int, int], image_width: int) -> float:
+    """
+    Calculates the offset score for the given bounding box.
+    """
+    x1, _, x2, _ = bbox
+    bbox_center_x = (x1 + x2) / 2
+    img_center_x = image_width / 2
+
+    # Compute normalized offset from the motion axis
+    offset = abs(bbox_center_x - img_center_x) / img_center_x
+
+    # Compute motion-axis risk weighting (1 - offset^2)
+    offset_score = 1 - offset**2
+
+    return offset_score

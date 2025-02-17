@@ -6,11 +6,13 @@ Feature extraction module for risk awareness.
 
 from time import time
 
+
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
 import numpy as np
 
 from riskam.ml import depth, humandet
+from riskam import score
 
 HUMAN_DETECTOR_MODEL = "hustvl/yolos-tiny"
 
@@ -22,7 +24,7 @@ def extract_human_risk_awareness_features(
     Extract the features related to human risk from the given image.
     """
     t = time()
-    human_bboxes, human_gazes = humandet.detect_humans(image_path)
+    human_bboxes, offset_scores, human_gazes = humandet.detect_humans(image_path)
 
     # Return the extracted features
     features = {
@@ -30,33 +32,41 @@ def extract_human_risk_awareness_features(
         "gaze": human_gazes,
     }
 
-    rel_depth = depth.estimate_depth(image_path)
-    image = Image.open(image_path).convert("RGBA")
+    rel_depth, depth_features = depth.estimate_depth(image_path, human_bboxes)
 
-    # Normalize depth values between 0 (far) and 1 (close)
-    depth_min, depth_max = rel_depth.min(), rel_depth.max()
-    rel_depth_normalized = 1 - (rel_depth - depth_min) / (
-        depth_max - depth_min
-    )  # Invert depth (close=1, far=0)
+    ch = depth_features["closest_human_idx"]
 
-    alpha_channel = (rel_depth_normalized * 255).astype(
-        np.uint8
-    )  # Alpha (transparency) based on depth
-    black_channel = np.zeros_like(alpha_channel)  # Black color (0,0,0)
+    if len(human_bboxes) > 0:
+        risk_features = {
+            "proximity": depth_features["closest_human_p10"],
+            "proximity_niqr": depth_features["closest_human_niqr"],
+            "x_offset_score": offset_scores[ch],
+            "gaze": human_gazes[ch],
+        }
+    else:
+        risk_features = None
 
-    # Stack into RGBA image (depth overlay)
-    depth_overlay = np.stack(
-        [black_channel, black_channel, black_channel, alpha_channel], axis=-1
-    )
-
-    # Convert to PIL image and resize to match input image
-    depth_overlay_pil = Image.fromarray(depth_overlay, mode="RGBA").resize(image.size)
-
-    # Blend images (alpha composite)
-    overlayed_image = Image.alpha_composite(image, depth_overlay_pil)
-
-    # Visualization
     if visualize:
+        image = Image.open(image_path).convert("RGBA")
+
+        alpha_channel = (rel_depth * 255).astype(
+            np.uint8
+        )  # Alpha (transparency) based on depth
+        black_channel = np.zeros_like(alpha_channel)  # Black color (0,0,0)
+
+        # Stack into RGBA image (depth overlay)
+        depth_overlay = np.stack(
+            [black_channel, black_channel, black_channel, alpha_channel], axis=-1
+        )
+
+        # Convert to PIL image and resize to match input image
+        depth_overlay_pil = Image.fromarray(depth_overlay, mode="RGBA").resize(
+            image.size
+        )
+
+        # Blend images (alpha composite)
+        overlayed_image = Image.alpha_composite(image, depth_overlay_pil)
+
         draw = ImageDraw.Draw(overlayed_image)
 
         for bbox, is_gazing in zip(human_bboxes, human_gazes):
@@ -65,11 +75,11 @@ def extract_human_risk_awareness_features(
             )  # Green if gazing, Red otherwise
             draw.rectangle(bbox, outline=color, width=3)
 
-        # Display the image
-        plt.figure(figsize=(8, 8))
-        plt.imshow(overlayed_image)
-        plt.axis("off")
-        plt.show()
+        # # Display the image
+        # plt.figure(figsize=(8, 8))
+        # plt.imshow(overlayed_image)
+        # plt.axis("off")
+        # plt.show()
 
         visualization = overlayed_image
     else:
@@ -77,7 +87,7 @@ def extract_human_risk_awareness_features(
 
     print("Feature extraction time:", time() - t)
 
-    return features, visualization
+    return risk_features, visualization
 
     # Estimate the distance of the closest human
     # - MiDaS: https://github.com/isl-org/MiDaS

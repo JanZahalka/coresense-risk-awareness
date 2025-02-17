@@ -13,12 +13,14 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 # pylint: disable=wrong-import-position
 from riskam.ml import featextr
+from riskam import score
 
 TEST_RESULTS_DIR = Path("test_results")
+MODEL_VIS_DIR = TEST_RESULTS_DIR / "model_vis"
+RISK_SCORE_DIR = TEST_RESULTS_DIR / "risk_scores"
 
 if __name__ == "__main__":
     IMG_PATHS = [
-        "ml_datasets/cs_robocup_2023/raw_dataset/RB_01/rgb/1537223827.468.png",  # Robot GOAL
         "ml_datasets/cs_robocup_2023/raw_dataset/RB_02/rgb/1537390896.430.png",  # Woman with bags
         "ml_datasets/cs_robocup_2023/raw_dataset/RB_08/rgb/1537360243.597.png",  # Man in orange sitting on couch
         "ml_datasets/cs_robocup_2023/raw_dataset/RB_08/rgb/1537360295.585.png",  # Surprised woman
@@ -26,7 +28,7 @@ if __name__ == "__main__":
         "ml_datasets/cs_robocup_2023/raw_dataset/RB_08/rgb/1537360313.658.png",  # A man in red with face really close to the camera, alone
         "ml_datasets/cs_robocup_2023/raw_dataset/RB_07/rgb/1537387705.642.png",  # Men arguing in front of the robot
         "ml_datasets/cs_robocup_2023/raw_dataset/RB_01/rgb/1537223839.849.png",  # Several people looking from the doorway
-        "/home/cortex/Pictures/runner.jpg",  # A runner
+        "ml_datasets/cs_robocup_2023/raw_dataset/RB_01/rgb/1537223827.468.png",  # Robot GOAL
     ]
 
     for img_path in IMG_PATHS:
@@ -34,9 +36,17 @@ if __name__ == "__main__":
             features, visualization = featextr.extract_human_risk_awareness_features(
                 image, img_path, visualize=True
             )
+            risk_score = score.risk_awareness_score(features)
+            risk_score_image = score.risk_score_image_overlay(img_path, risk_score)
 
-            output_path = TEST_RESULTS_DIR / Path(img_path).name
-            TEST_RESULTS_DIR.mkdir(exist_ok=True, parents=True)
+            model_vis_output_path = MODEL_VIS_DIR / Path(img_path).name
+            risk_score_output_path = RISK_SCORE_DIR / Path(img_path).name
+
+            MODEL_VIS_DIR.mkdir(exist_ok=True, parents=True)
+            RISK_SCORE_DIR.mkdir(exist_ok=True, parents=True)
 
             if visualization is not None:
-                visualization.save(output_path)
+                visualization.save(model_vis_output_path)
+
+            if risk_score_image is not None:
+                risk_score_image.save(risk_score_output_path)
