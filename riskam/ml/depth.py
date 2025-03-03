@@ -51,18 +51,10 @@ def estimate_depth(
             align_corners=False,
         ).squeeze()
 
-    inverse_depths = prediction.cpu().numpy()
-
-    # Normalize, use log normalization to match human depth perception
-    # (going from 1 meter to 2 is way more significant than from 10 to 11)
-    inv_depths_min = inverse_depths.min()
-    inv_depths_max = inverse_depths.max()
+    depth_map = prediction.cpu().numpy()
 
     # Apply the correct inverse log normalization
-    normalized_inverse_depths = (
-        np.log(inv_depths_max + 1) - np.log(inverse_depths + 1)
-    ) / (np.log(inv_depths_max + 1) - np.log(inv_depths_min + 1))
-
+    normalized_inverse_depths = _depth_gamma_normalization(depth_map)
     # Calculate the stats
     depth_stats = _closest_human_depth_stats(normalized_inverse_depths, human_bboxes)
 
@@ -75,6 +67,9 @@ def _closest_human_depth_stats(
     """
     Returns the depth stats corresponding to the CLOSEST human in the image.
     """
+    # If no bounding boxes, return None
+    if len(human_bboxes) == 0:
+        return None
 
     # Image-wide stats
     inv_depths_std = np.std(inverse_depths)
@@ -100,13 +95,109 @@ def _closest_human_depth_stats(
     # Calculate the closest human's normalized IQR - if there is no variation, set to 0
     p25, p75 = np.percentile(bbox_inv_depths_all[closest_idx], [25, 75])
 
-    if inv_depths_std == 0.0:
-        closest_niqr = 0.0
-    else:
-        closest_niqr = (p75 - p25) / inv_depths_std
+    # if inv_depths_std == 0.0:
+    #     closest_niqr = 0.0
+    # else:
+    #     closest_niqr = (p75 - p25) / inv_depths_std
 
     return {
         "closest_human_idx": closest_idx,
         "closest_human_p10": bbox_p10s[closest_idx],
-        "closest_human_niqr": closest_niqr,
     }
+
+
+def _depth_gamma_normalization(
+    depth_map,
+    clip_percentiles=(1, 99),
+    gamma=0.6,
+    eps=1e-6,
+):
+    """
+    A flexible normalization for MiDaS depth maps that
+    (1) robustly clips outliers,
+    (2) inverts (closer -> larger),
+    (3) applies optional gamma compression,
+    (4) yields [0,1] output.
+
+    Parameters
+    ----------
+    depth_map : np.ndarray
+        The MxN relative depth map from MiDaS (or similar).
+    clip_percentiles : (float, float), optional
+        Percentiles used to clip the depth_map. For example, (1, 99)
+        will clip anything below the 1st percentile or above the 99th percentile.
+        If None, no clipping is performed.
+    gamma : float, optional
+        Gamma exponent for the compression.
+        - If gamma < 1, near-depth differences are more emphasized.
+        - If gamma = 1, no extra compression beyond min–max.
+        - If gamma > 1, near-depth differences are less emphasized.
+    eps : float, optional
+        A small constant to avoid division by zero or NaNs.
+
+    Returns
+    -------
+    normalized : np.ndarray
+        A [0,1] float map. NaNs become 0 by default.
+    """
+
+    # 0) Handle NaNs by replacing them with the min of valid values
+    valid_mask = ~np.isnan(depth_map)
+    if not np.any(valid_mask):
+        # If the entire map is NaN, return zeros
+        return np.zeros_like(depth_map, dtype=np.float32)
+    depth_map_no_nan = depth_map.copy()
+    nan_replacement = np.nanmin(depth_map)
+    depth_map_no_nan[~valid_mask] = nan_replacement
+
+    # 1) Optional outlier clipping based on percentiles
+    if clip_percentiles is not None:
+        lo, hi = np.percentile(depth_map_no_nan, clip_percentiles)
+        depth_map_no_nan = np.clip(depth_map_no_nan, lo, hi)
+
+    # 2) Simple min-max normalization
+    d_min = depth_map_no_nan.min()
+    d_max = depth_map_no_nan.max()
+    rng = d_max - d_min
+    if rng < eps:
+        # If everything is (nearly) the same, return zeros
+        return np.zeros_like(depth_map_no_nan, dtype=np.float32)
+    norm = (depth_map_no_nan - d_min) / rng
+
+    # 3) Invert so that smaller depths (i.e. near camera) => bigger values
+    #    (You can remove this step if you prefer smaller => smaller.)
+    norm = 1.0 - norm
+
+    # 4) Gamma correction (helps expand differences near 1 if gamma < 1)
+    if gamma != 1.0:
+        # Make sure all values are > 0 before exponentiation
+        norm = np.clip(norm, 0, 1)  # avoid negative or above 1 from rounding errors
+        norm = norm**gamma
+
+    # Return the final normalized map
+    return norm.astype(np.float32)
+
+
+def _depth_log_normalization(depth_map: np.ndarray, eps=1e-6):
+    """
+    Normalize the inverse depths.
+    """
+    # Shift so all values are >= eps
+    d_min = np.nanmin(depth_map)
+    shifted = depth_map - d_min + eps  # shift & ensure strictly positive
+
+    # Log-compress to emphasize small (near) values
+    log_shifted = np.log(shifted)
+
+    # Rescale to [0, 1]
+    log_min, log_max = np.nanmin(log_shifted), np.nanmax(log_shifted)
+    # If all values are the same, log_max == log_min. Handle that:
+    if np.isclose(log_min, log_max):
+        normalized = np.zeros_like(log_shifted, dtype=np.float32)
+    else:
+        normalized = (log_shifted - log_min) / (log_max - log_min)
+
+    # Invert
+    normalized = 1.0 - normalized
+
+    return normalized

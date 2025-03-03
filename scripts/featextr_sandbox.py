@@ -37,7 +37,7 @@ if __name__ == "__main__":
                 image, img_path, visualize=True
             )
             risk_score = score.risk_awareness_score(features)
-            risk_score_image = score.risk_score_image_overlay(img_path, risk_score)
+            risk_score_image = score.risk_score_image_overlay(visualization, risk_score)
 
             model_vis_output_path = MODEL_VIS_DIR / Path(img_path).name
             risk_score_output_path = RISK_SCORE_DIR / Path(img_path).name
@@ -45,8 +45,8 @@ if __name__ == "__main__":
             MODEL_VIS_DIR.mkdir(exist_ok=True, parents=True)
             RISK_SCORE_DIR.mkdir(exist_ok=True, parents=True)
 
-            if visualization is not None:
-                visualization.save(model_vis_output_path)
+            # if visualization is not None:
+            #     visualization.save(model_vis_output_path)
 
             if risk_score_image is not None:
                 risk_score_image.save(risk_score_output_path)

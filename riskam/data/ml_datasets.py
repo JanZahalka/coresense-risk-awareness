@@ -11,7 +11,7 @@ from riskam.data.cs_robocup_2023 import CSRoboCup2023
 from riskam.data.paths import CS_ROBOCUP_2023_ML_RAW_DIR, CS_ROBOCUP_2023_ML_FEAT_DIR
 
 DATASETS = {
-    "cs_robocup_2023": {"class": CSRoboCup2023, "dir": CS_ROBOCUP_2023_ML_FEAT_DIR}
+    "cs_robocup_2023": {"class": CSRoboCup2023, "img_dir": CS_ROBOCUP_2023_ML_RAW_DIR}
 }
 
 

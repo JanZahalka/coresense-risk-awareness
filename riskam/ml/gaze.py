@@ -20,8 +20,8 @@ face_detection = mp_face_detection.FaceDetection(
 )
 
 # Constants: yaw and pitch thresholds. The larger the threshold, the more lenient
-YAW_THRESHOLD = 0.35
-EYE_GAZE_THRESHOLD = 0.2  # Adjust as needed
+YAW_THRESHOLD = 0
+EYE_GAZE_THRESHOLD = 0
 
 FACE_DETECTION_MODEL = "deepghs/yolo-face"
 
@@ -88,7 +88,9 @@ def detect_gaze(image: Image, visualize: bool = False) -> bool | None:
 
     print(f"Yaw Offset: {yaw_offset:.2f}, Eye Gaze Offset: {eye_gaze_offset:.2f}")
 
-    is_aware = (yaw_offset < YAW_THRESHOLD) and (eye_gaze_offset < EYE_GAZE_THRESHOLD)
+    is_aware = (np.abs(yaw_offset) < YAW_THRESHOLD) and (
+        np.abs(eye_gaze_offset) < EYE_GAZE_THRESHOLD
+    )
     return is_aware
 
     # # Convert image to RGB
