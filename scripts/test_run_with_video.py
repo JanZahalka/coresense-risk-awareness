@@ -9,7 +9,6 @@ import argparse
 from pathlib import Path
 import sys
 
-from PIL import Image
 from tqdm import tqdm
 
 sys.path.append(str(Path(__file__).parent.parent))
@@ -17,7 +16,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 # pylint: disable=wrong-import-position
 from riskam.data.ml_datasets import DATASETS
 from riskam.ml import featextr
-from riskam import score, video
+from riskam import score, video, visualization as vis
 
 TEST_RESULTS_DIR = Path("test_results")
 RISK_SCORE_MASTER_DIR = TEST_RESULTS_DIR / "risk_scores"
@@ -47,17 +46,22 @@ if __name__ == "__main__":
 
     # Perform the risk awareness analysis
     for img_path in tqdm(sorted(IMG_DIR.iterdir())):
-        with Image.open(img_path) as image:
-            features, visualization = featextr.extract_human_risk_awareness_features(
-                image, img_path, visualize=True
-            )
-            risk_score = score.risk_awareness_score(features)
-            risk_score_image = score.risk_score_image_overlay(visualization, risk_score)
+        human_bboxes, rel_depth, risk_features = (
+            featextr.extract_human_risk_awareness_features(img_path, track_bboxes=True)
+        )
+        risk_score, max_risk_idx = score.risk_awareness_score(risk_features)
 
-            risk_score_output_path = risk_score_dir / Path(img_path).name
+        risk_score_output_path = risk_score_dir / Path(img_path).name
 
-            if risk_score_image is not None:
-                risk_score_image.save(risk_score_output_path)
+        vis.visualize_risk(
+            img_path,
+            risk_score_output_path,
+            human_bboxes,
+            rel_depth,
+            risk_features,
+            risk_score,
+            max_risk_idx,
+        )
 
     # Process the videos
     video.images_to_video(

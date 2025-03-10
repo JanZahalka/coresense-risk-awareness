@@ -25,14 +25,93 @@ YOLO_POSE_MODEL_PATH = ML_MODELS_DIR / "yolo11n-pose.pt"
 model = YOLO(YOLO_POSE_MODEL_PATH, verbose=False)
 
 
-HEAD_OFFSET_THRESHOLD_RATIO = 0.25
-
 FACE_OFFSET_LOWER_THRESHOLD_RATIO = 0.1
-FACE_OFFSET_UPPER_THRESHOLD_RATIO = 0.1
+FACE_OFFSET_UPPER_THRESHOLD_RATIO = 0.2
+
+
+class BboxTracker:
+    """
+    A simple bounding box tracker for tracking humans across frames, introducing
+    spatio-temporal continuity.
+    """
+
+    IOU_THRESHOLD = 0.5
+    CONSECUTIVE_FRAMES_THRESHOLD = 3
+
+    def __init__(self, iou_threshold=0.5, min_consecutive_frames=3):
+        self.iou_threshold = iou_threshold
+        self.min_consecutive_frames = min_consecutive_frames
+        self.tracked_bboxes = {}
+        self.next_bbox_id = 0
+
+    def iou(self, box1, box2):
+        """
+        Computes the Intersection over Union (IoU) score between two bounding boxes.
+        """
+        inter_left = max(box1[0], box2[0])
+        inter_top = max(box1[1], box2[1])
+        inter_right = min(box1[2], box2[2])
+        inter_bottom = min(box1[3], box2[3])
+
+        inter_area = max(0, inter_right - inter_left) * max(0, inter_bottom - inter_top)
+        box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
+        box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
+
+        return inter_area / float(box1_area + box2_area - inter_area)
+
+    def update(self, detections: list[tuple[int, int, int, int]]) -> list[bool]:
+        """
+        Updates the tracked bounding boxes with the new detections.
+        """
+
+        updated_tracked = {}
+        bboxes_confirmed = [False] * len(detections)
+
+        # Associate new detections with tracked boxes
+        for d, det in enumerate(detections):
+            matched_id = None
+            max_iou = 0
+
+            for bbox_id, bbox_info in self.tracked_bboxes.items():
+                iou_score = self.iou(det, bbox_info["coords"])
+                if iou_score > self.iou_threshold and iou_score > max_iou:
+                    matched_id = bbox_id
+                    max_iou = iou_score
+
+            if matched_id is not None:
+                # Update existing bbox
+                updated_tracked[matched_id] = {
+                    "coords": det,
+                    "count": self.tracked_bboxes[matched_id]["count"] + 1,
+                }
+
+                # If the bbox has been confirmed for enough consecutive frames, mark as confirmed
+                if updated_tracked[matched_id]["count"] >= self.min_consecutive_frames:
+                    bboxes_confirmed[d] = True
+
+            else:
+                # Add new bbox
+                updated_tracked[self.next_bbox_id] = {"coords": det, "count": 1}
+                self.next_bbox_id += 1
+
+        # Keep only updated tracked boxes
+        self.tracked_bboxes = updated_tracked
+
+        # Return bboxes confirmed by sufficient consecutive detections
+        confirmed_bboxes = [
+            bbox_info["coords"]
+            for bbox_info in self.tracked_bboxes.values()
+            if bbox_info["count"] >= self.min_consecutive_frames
+        ]
+
+        return bboxes_confirmed
+
+
+bbox_tracker = BboxTracker()
 
 
 def detect_humans(
-    image_path: str,
+    image_path: str, track_bboxes: bool = True
 ) -> tuple[list[tuple[int, int, int, int]], list[float], list[bool]]:
     """
     Detects humans in the given image and whether they are likely aware of the robot,
@@ -53,12 +132,23 @@ def detect_humans(
         if len(result.boxes.xyxy) == 0:
             continue  # Skip if no humans detected
 
+        # Extract human bounding boxes
         human_bboxes = result.boxes.xyxy.cpu().tolist()
 
+        # Extract keypoints (only x, y coords)
         keypoints = result.keypoints
-
-        # Extract only (x, y) coordinates
         keypoints_np = keypoints.data[..., :2].cpu().numpy()
+
+        # Confirm the detected bounding boxes, filter out the unconfirmed ones
+        if track_bboxes:
+            bboxes_confirmed = bbox_tracker.update(human_bboxes)
+
+            human_bboxes = [
+                bbox
+                for bbox, confirmed in zip(human_bboxes, bboxes_confirmed)
+                if confirmed
+            ]
+            keypoints_np = keypoints_np[bboxes_confirmed, :, :]
 
     # Calculate bbox offsets from the center
     if len(image.shape) == 3:
@@ -70,6 +160,19 @@ def detect_humans(
     ]
 
     return human_bboxes, human_bbox_offsets, keypoints_np
+
+
+def gaze_scores(keypoints_np: np.ndarray) -> list[float]:
+    """
+    Detects the gaze scores for each person in the image.
+    """
+    gaze_scores = []
+
+    if keypoints_np is not None:
+        for i in range(len(keypoints_np)):
+            gaze_scores.append(detect_gaze(keypoints_np, i))
+
+    return gaze_scores
 
 
 def detect_gaze(keypoints_np: np.ndarray, human_idx: int) -> float:

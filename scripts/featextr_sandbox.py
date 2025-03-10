@@ -13,7 +13,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 # pylint: disable=wrong-import-position
 from riskam.ml import featextr
-from riskam import score
+from riskam import score, visualization as vis
 
 TEST_RESULTS_DIR = Path("test_results")
 MODEL_VIS_DIR = TEST_RESULTS_DIR / "model_vis"
@@ -33,20 +33,28 @@ if __name__ == "__main__":
 
     for img_path in IMG_PATHS:
         with Image.open(img_path) as image:
-            features, visualization = featextr.extract_human_risk_awareness_features(
-                image, img_path, visualize=True
+            human_bboxes, rel_depth, risk_features = (
+                featextr.extract_human_risk_awareness_features(
+                    img_path, track_bboxes=False
+                )
             )
-            risk_score = score.risk_awareness_score(features)
-            risk_score_image = score.risk_score_image_overlay(visualization, risk_score)
+            risk_score, max_risk_idx = score.risk_awareness_score(risk_features)
 
-            model_vis_output_path = MODEL_VIS_DIR / Path(img_path).name
+            # model_vis_output_path = MODEL_VIS_DIR / Path(img_path).name
             risk_score_output_path = RISK_SCORE_DIR / Path(img_path).name
 
-            MODEL_VIS_DIR.mkdir(exist_ok=True, parents=True)
+            # MODEL_VIS_DIR.mkdir(exist_ok=True, parents=True)
             RISK_SCORE_DIR.mkdir(exist_ok=True, parents=True)
 
             # if visualization is not None:
             #     visualization.save(model_vis_output_path)
 
-            if risk_score_image is not None:
-                risk_score_image.save(risk_score_output_path)
+            vis.visualize_risk(
+                img_path,
+                None,
+                human_bboxes,
+                rel_depth,
+                risk_features,
+                risk_score,
+                max_risk_idx,
+            )

@@ -16,6 +16,9 @@ import matplotlib.pyplot as plt
 # OpenCV throws no-member linting errors
 # pylint: disable=no-member
 
+# The inverse depth percentile to use as the distance of a bounding box to the camera
+RELATIVE_DEPTH_PERCENTILE = 10
+
 
 MIDAS_MODEL_TYPE = "DPT_Hybrid"
 midas = torch.hub.load("intel-isl/MiDaS", MIDAS_MODEL_TYPE)
@@ -56,27 +59,32 @@ def estimate_depth(
     # Apply the correct inverse log normalization
     normalized_inverse_depths = _depth_gamma_normalization(depth_map)
     # Calculate the stats
-    depth_stats = _closest_human_depth_stats(normalized_inverse_depths, human_bboxes)
+    bbox_relative_depths = _bbox_relative_depths(
+        normalized_inverse_depths, human_bboxes
+    )
 
-    return normalized_inverse_depths, depth_stats
+    return normalized_inverse_depths, bbox_relative_depths
 
 
-def _closest_human_depth_stats(
+def _bbox_relative_depths(
     inverse_depths: np.ndarray, human_bboxes: list[list[int]]
-) -> dict:
+) -> list[float]:
     """
-    Returns the depth stats corresponding to the CLOSEST human in the image.
+    Returns the relative depths of the bounding boxes.
     """
     # If no bounding boxes, return None
     if len(human_bboxes) == 0:
         return None
 
-    # Image-wide stats
-    inv_depths_std = np.std(inverse_depths)
+    # # Image-wide stats
+    # inv_depths_std = np.std(inverse_depths)
 
-    # Bounding box medians
-    bbox_inv_depths_all = []
-    bbox_p10s = []
+    # BBOX STATS
+    # # The list of inverse depth matrices for each bounding box
+    # bbox_inv_depths_all = []
+
+    # The list of relative depths, distances of each bounding box to the camera
+    bbox_relative_depths = []
 
     # Iterate over the bounding boxes
     for bbox in human_bboxes:
@@ -84,26 +92,25 @@ def _closest_human_depth_stats(
 
         # Slice the image
         bbox_inv_depths = inverse_depths[y1:y2, x1:x2]
-        bbox_inv_depths_all.append(bbox_inv_depths)
+        # bbox_inv_depths_all.append(bbox_inv_depths)
 
-        # Calculate the median & append
-        bbox_p10s.append(np.percentile(bbox_inv_depths, 10))
+        # Calculate the relative depth & append
+        bbox_relative_depths.append(
+            np.percentile(bbox_inv_depths, RELATIVE_DEPTH_PERCENTILE)
+        )
 
     # Select the closest human
-    closest_idx = np.argmin(bbox_p10s)
+    # closest_idx = np.argmin(bbox_relative_depths)
 
     # Calculate the closest human's normalized IQR - if there is no variation, set to 0
-    p25, p75 = np.percentile(bbox_inv_depths_all[closest_idx], [25, 75])
+    # p25, p75 = np.percentile(bbox_inv_depths_all[closest_idx], [25, 75])
 
     # if inv_depths_std == 0.0:
     #     closest_niqr = 0.0
     # else:
     #     closest_niqr = (p75 - p25) / inv_depths_std
 
-    return {
-        "closest_human_idx": closest_idx,
-        "closest_human_p10": bbox_p10s[closest_idx],
-    }
+    return bbox_relative_depths
 
 
 def _depth_gamma_normalization(
