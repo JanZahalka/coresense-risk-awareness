@@ -25,8 +25,8 @@ YOLO_POSE_MODEL_PATH = ML_MODELS_DIR / "yolo11n-pose.pt"
 model = YOLO(YOLO_POSE_MODEL_PATH, verbose=False)
 
 
-FACE_OFFSET_LOWER_THRESHOLD_RATIO = 0.1
-FACE_OFFSET_UPPER_THRESHOLD_RATIO = 0.2
+FACE_OFFSET_LOWER_THRESHOLD_RATIO_EMPIRICAL_DEFAULT = 0.1
+FACE_OFFSET_UPPER_THRESHOLD_RATIO_EMPIRICAL_DEFAULT = 0.2
 
 
 class BboxTracker:
@@ -162,20 +162,36 @@ def detect_humans(
     return human_bboxes, human_bbox_offsets, keypoints_np
 
 
-def gaze_scores(keypoints_np: np.ndarray) -> list[float]:
+def gaze_scores(
+    keypoints_np: np.ndarray,
+    face_offset_lower_threshold_ratio: float = FACE_OFFSET_LOWER_THRESHOLD_RATIO_EMPIRICAL_DEFAULT,
+    face_offset_upper_threshold_ratio: float = FACE_OFFSET_UPPER_THRESHOLD_RATIO_EMPIRICAL_DEFAULT,
+) -> list[float]:
     """
     Detects the gaze scores for each person in the image.
     """
-    gaze_scores = []
+    gaze_scores_all_bboxes = []
 
     if keypoints_np is not None:
         for i in range(len(keypoints_np)):
-            gaze_scores.append(detect_gaze(keypoints_np, i))
+            gaze_scores_all_bboxes.append(
+                detect_gaze(
+                    keypoints_np,
+                    i,
+                    face_offset_lower_threshold_ratio,
+                    face_offset_upper_threshold_ratio,
+                )
+            )
 
-    return gaze_scores
+    return gaze_scores_all_bboxes
 
 
-def detect_gaze(keypoints_np: np.ndarray, human_idx: int) -> float:
+def detect_gaze(
+    keypoints_np: np.ndarray,
+    human_idx: int,
+    face_offset_lower_threshold_ratio: float = FACE_OFFSET_LOWER_THRESHOLD_RATIO_EMPIRICAL_DEFAULT,
+    face_offset_upper_threshold_ratio: float = FACE_OFFSET_UPPER_THRESHOLD_RATIO_EMPIRICAL_DEFAULT,
+) -> float:
     """
     Detects whether the person at the given index is looking at the robot.
     """
@@ -231,8 +247,8 @@ def detect_gaze(keypoints_np: np.ndarray, human_idx: int) -> float:
             1,
             max(
                 0,
-                (FACE_OFFSET_UPPER_THRESHOLD_RATIO - normalized_face_offset)
-                / FACE_OFFSET_LOWER_THRESHOLD_RATIO,
+                (face_offset_upper_threshold_ratio - normalized_face_offset)
+                / face_offset_lower_threshold_ratio,
             ),
         )
         # print(

@@ -11,11 +11,12 @@ import numpy as np
 
 # pylint: disable=no-member
 
-W_PROXIMITY = 0.7
-W_GAZE = 0.25
-W_POSITION = 0.05
+W_PROXIMITY_EMPIRICAL_DEFAULT = 0.7
+W_GAZE_EMPIRICAL_DEFAULT = 0.25
+W_POSITION_EMPIRICAL_DEFAULT = 0.05
 
 RISK_SCORE_BREAKPOINTS = [0, 0.3, 0.6, 1]
+VERY_SMALL_RISK_VALUE = 0.00001
 
 # Report the risk score aggregated over n frames
 N_FRAMES_AGGREGATE = 5
@@ -26,9 +27,9 @@ prev_risks = []
 
 def risk_awareness_score(
     features: dict[str, np.ndarray] | None,
-    w_proximity: float = W_PROXIMITY,
-    w_gaze: float = W_GAZE,
-    w_position: float = W_POSITION,
+    w_proximity: float = W_PROXIMITY_EMPIRICAL_DEFAULT,
+    w_gaze: float = W_GAZE_EMPIRICAL_DEFAULT,
+    w_position: float = W_POSITION_EMPIRICAL_DEFAULT,
 ) -> tuple[float, int]:
     """
     For the given image features, calculates the risk awareness score.
@@ -47,7 +48,7 @@ def risk_awareness_score(
     )
 
     # Select the maximum risk score & the corresponding index, clamp
-    risk_score = max(0.00001, min(1, max(risk_scores)))
+    risk_score = max(VERY_SMALL_RISK_VALUE, min(1, max(risk_scores)))
     max_risk_idx = np.argmax(risk_scores)
 
     # Append the risk score to the previous values

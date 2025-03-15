@@ -173,3 +173,4 @@ ml_models
 
 # Test results and directories
 test_*/
+exp_results/

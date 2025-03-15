@@ -19,6 +19,8 @@ import matplotlib.pyplot as plt
 # The inverse depth percentile to use as the distance of a bounding box to the camera
 RELATIVE_DEPTH_PERCENTILE = 10
 
+GAMMA_EMPIRICAL_DEFAULT = 0.6
+
 
 MIDAS_MODEL_TYPE = "DPT_Hybrid"
 midas = torch.hub.load("intel-isl/MiDaS", MIDAS_MODEL_TYPE)
@@ -32,7 +34,9 @@ transform = midas_transforms.dpt_transform
 
 
 def estimate_depth(
-    image_path: str, human_bboxes: list[list[int]]
+    image_path: str,
+    human_bboxes: list[list[int]],
+    gamma: float = GAMMA_EMPIRICAL_DEFAULT,
 ) -> tuple[np.ndarray, dict]:
     """
     Estimates depth for the given image.
@@ -56,8 +60,8 @@ def estimate_depth(
 
     depth_map = prediction.cpu().numpy()
 
-    # Apply the correct inverse log normalization
-    normalized_inverse_depths = _depth_gamma_normalization(depth_map)
+    # Normalize
+    normalized_inverse_depths = _depth_gamma_normalization(depth_map, gamma=gamma)
     # Calculate the stats
     bbox_relative_depths = _bbox_relative_depths(
         normalized_inverse_depths, human_bboxes
@@ -116,7 +120,7 @@ def _bbox_relative_depths(
 def _depth_gamma_normalization(
     depth_map,
     clip_percentiles=(1, 99),
-    gamma=0.6,
+    gamma=GAMMA_EMPIRICAL_DEFAULT,
     eps=1e-6,
 ):
     """
