@@ -144,7 +144,13 @@ def inspect_predictions(dataset: str, pred_type: str, run: str | None = None) ->
     cv2.destroyAllWindows()
 
 
-def run_experiment(dataset: str, params: dict, run: str | None = None) -> None:
+def run_experiment(
+    dataset: str,
+    params: dict,
+    run: str | None = None,
+    output_images: bool = False,
+    overwrite_existing: bool = False,
+) -> None:
     """
     Run the experiment for the given dataset with the given experimental params.
     """
@@ -169,6 +175,12 @@ def run_experiment(dataset: str, params: dict, run: str | None = None) -> None:
 
     # Establish the output directories
     experiment_dir = EXP_ROOT_DIR / dataset / run / params_slug
+
+    # If not overwriting and the directory exists, stop
+    if experiment_dir.exists() and not overwrite_existing:
+        print("+++ EXPERIMENT ALREADY COMPLETED, SKIPPING +++")
+        return
+
     risk_img_output_dir = experiment_dir / RISK_IMAGES_DIRNAME
     risk_img_output_dir.mkdir(exist_ok=True, parents=True)
 
@@ -224,17 +236,18 @@ def run_experiment(dataset: str, params: dict, run: str | None = None) -> None:
         raw_predictions[img_path.name] = risk_score
 
         # Visualize & store the risk visualization (what the model sees)
-        risk_img_output_path = risk_img_output_dir / Path(img_path).name
+        if output_images:
+            risk_img_output_path = risk_img_output_dir / Path(img_path).name
 
-        vis.visualize_risk(
-            img_path,
-            risk_img_output_path,
-            human_bboxes,
-            rel_depth,
-            risk_features,
-            risk_score,
-            max_risk_idx,
-        )
+            vis.visualize_risk(
+                img_path,
+                risk_img_output_path,
+                human_bboxes,
+                rel_depth,
+                risk_features,
+                risk_score,
+                max_risk_idx,
+            )
     # Calculate the average time per image
     avg_time = sum(times) / len(times)
     metrics["avg_time"] = avg_time
@@ -256,21 +269,22 @@ def run_experiment(dataset: str, params: dict, run: str | None = None) -> None:
         json.dump(raw_predictions, f, indent=4)
 
     # Create the videos
-    # raw_video_path = experiment_dir / RAW_VIDEO_FNAME
-    risk_video_path = experiment_dir / RISK_VIDEO_FNAME
+    if output_images:
+        # raw_video_path = experiment_dir / RAW_VIDEO_FNAME
+        risk_video_path = experiment_dir / RISK_VIDEO_FNAME
 
-    # video.images_to_video(
-    #     img_dir,
-    #     raw_video_path,
-    #     image_extension="png",
-    #     fps=30,
-    # )
-    video.images_to_video(
-        risk_img_output_dir,
-        risk_video_path,
-        image_extension="png",
-        fps=10,
-    )
+        # video.images_to_video(
+        #     img_dir,
+        #     raw_video_path,
+        #     image_extension="png",
+        #     fps=30,
+        # )
+        video.images_to_video(
+            risk_img_output_dir,
+            risk_video_path,
+            image_extension="png",
+            fps=10,
+        )
 
     print(
         f"+++ EXPERIMENT {f"{dataset} / {run} / {params_slug}" if run else f"{dataset} / {params_slug}"} COMPLETE +++"
@@ -289,7 +303,12 @@ def run_experiment(dataset: str, params: dict, run: str | None = None) -> None:
     print(f"    - Average time per image: {avg_time:.2f}s")
 
 
-def run_experiments(dataset: str, run: str | None = None) -> None:
+def run_experiments(
+    dataset: str,
+    run: str | None = None,
+    output_images: bool = False,
+    overwrite_existing: bool = False,
+) -> None:
     """
     Run the experiments for the given dataset across all parameter configs.
     """
@@ -307,6 +326,8 @@ def run_experiments(dataset: str, run: str | None = None) -> None:
                         "gaze_upper": gaze_thresh[1],
                     },
                     run,
+                    output_images,
+                    overwrite_existing,
                 )
 
 
