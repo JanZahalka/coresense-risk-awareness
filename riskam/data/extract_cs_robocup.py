@@ -38,7 +38,7 @@ def extract_cs_robocup2023() -> None:
         bag_dir = CS_ROBOCUP_2023_ROS_DIR / f"RB_0{rb}"
 
         if rb == 1:
-            bag_dir = bag_dir / f"RB_0{rb}" / "mapeo1"
+            bag_dir = bag_dir / "mapeo1"
 
         output_dir = CS_ROBOCUP_2023_ML_RAW_DIR / f"RB_0{rb}"
         rgb_output_dir = output_dir / "rgb"

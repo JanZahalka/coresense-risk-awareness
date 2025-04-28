@@ -18,6 +18,13 @@ from riskam.data.ml_datasets import DATASETS
 from riskam.ml import featextr
 from riskam import score, video, visualization as vis
 
+DEFAULT_W_PROX = 0.65
+DEFAULT_W_GAZE = 0.25
+DEFAULT_W_XPOS = 0.1
+DEFAULT_GAMMA = 1
+DEFAULT_GAZE_THRESHOLD_LOWER = 0.1
+DEFAULT_GAZE_THRESHOLD_UPPER = 0.2
+
 TEST_RESULTS_DIR = Path("test_results")
 RISK_SCORE_MASTER_DIR = TEST_RESULTS_DIR / "risk_scores"
 VIDEO_DIR = TEST_RESULTS_DIR / "videos"
@@ -47,7 +54,13 @@ if __name__ == "__main__":
     # Perform the risk awareness analysis
     for img_path in tqdm(sorted(IMG_DIR.iterdir())):
         human_bboxes, rel_depth, risk_features = (
-            featextr.extract_human_risk_awareness_features(img_path, track_bboxes=True)
+            featextr.extract_human_risk_awareness_features(
+                img_path,
+                depth_gamma=DEFAULT_GAMMA,
+                gaze_face_offset_lower_threshold_ratio=DEFAULT_GAZE_THRESHOLD_LOWER,
+                gaze_face_offset_upper_threshold_ratio=DEFAULT_GAZE_THRESHOLD_UPPER,
+                track_bboxes=True,
+            )  # noqa: E501
         )
         risk_score, max_risk_idx = score.risk_awareness_score(risk_features)
 
